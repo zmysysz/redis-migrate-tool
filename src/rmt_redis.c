@@ -6555,25 +6555,7 @@ int redis_parse_rdb_file(redis_node *srnode, int mbuf_count_one_time)
             }
 
             expiretime_type = RMT_TIME_MILLISECOND;
-        } else if (type == REDIS_RDB_OPCODE_FREQ) {
-            uint8_t byte = 0;
-			if (redis_rdb_file_read(rdb, &byte, 1) != RMT_OK) {
-                log_error("ERROR: redis rdb file:%s read freq error", rdb->fname);
-				goto eoferr;                
-			}
-			
-			lfu_freq = byte;
-			continue;
-		} else if (type == REDIS_RDB_OPCODE_IDLE) {
-		    uint64_t qword;
-			if ((qword = redis_rdb_file_load_len(rdb, NULL)) == REDIS_RDB_LENERR) {
-                log_error("ERROR: redis rdb file:%s read idle error", rdb->fname);
-				goto eoferr;
-			}
-            
-			lru_idle = qword;
-			continue; 
-		} else if (type == REDIS_RDB_OPCODE_EOF) {
+        } else if (type == REDIS_RDB_OPCODE_EOF) {
             break;
         } else if (type == REDIS_RDB_OPCODE_SELECTDB) {
             if ((dbid = redis_rdb_file_load_len(rdb, NULL)) 
@@ -6612,8 +6594,45 @@ int redis_parse_rdb_file(redis_node *srnode, int mbuf_count_one_time)
             continue;
         } else if (type == REDIS_RDB_OPCODE_MODULE_AUX) {
             //redis has only checkmode now
+            log_error("ERROR: type %d ignore the type module aux",type);
             continue;
-		}
+	}
+	//modify by zmy
+	if (type == REDIS_RDB_OPCODE_FREQ) {
+            uint8_t byte = 0;
+                        if (redis_rdb_file_read(rdb, &byte, 1) != RMT_OK) {
+                log_error("ERROR: redis rdb file:%s read freq error", rdb->fname);
+                                goto eoferr;
+                        }
+
+                        lfu_freq = byte;
+                        //modify by zmy
+                        if (redis_rdb_file_read(rdb, &byte, 1) != RMT_OK) {
+                                log_error("ERROR: redis rdb file:%s read freq error", rdb->fname);
+                                goto eoferr;
+                        }
+                        continue;
+                } else if (type == REDIS_RDB_OPCODE_IDLE) {
+                    uint64_t qword;
+                        if ((qword = redis_rdb_file_load_len(rdb, NULL)) == REDIS_RDB_LENERR) {
+                log_error("ERROR: redis rdb file:%s read idle error", rdb->fname);
+                                goto eoferr;
+                        }
+
+                        lru_idle = qword;
+                        //modify by zmy
+                        uint8_t byte = 0;
+                        if (redis_rdb_file_read(rdb, &byte, 1) != RMT_OK) {
+                                log_error("ERROR: redis rdb file:%s read idle error", rdb->fname);
+                                goto eoferr;
+                        }
+                        continue;
+        }
+	/*	
+	if (!((type >= 0 && type <= 5) || (type >= 9 && type <= 14) || (type >= 252 && type <= 253))) {
+		log_error("ERROR: type %d ignore the type",type);
+		continue;
+	}*/	
 
         if ((key = redis_rdb_file_load_str(rdb)) == NULL) {
             log_error("ERROR: redis rdb file %s read key error", 
@@ -6622,8 +6641,8 @@ int redis_parse_rdb_file(redis_node *srnode, int mbuf_count_one_time)
         }
 
         if ((value = redis_rdb_file_load_value(rdb, type)) == NULL) {
-            log_error("ERROR: redis rdb file %s read value error", 
-                rdb->fname);
+            log_error("ERROR: redis rdb file %s read value error, %d", 
+                rdb->fname,type);
             goto eoferr;
         }
 
