@@ -255,6 +255,7 @@ typedef struct thread_data{
     volatile int      stat_aof_loaded_count;        /* the aof file load finished count for this read thread */
     volatile uint64_t stat_mbufs_inqueue;           /* the count of mbufs that recived from source group */
     volatile uint64_t stat_msgs_outqueue;           /* the count of msgs that will be sent to target group and msgs had been sent to target but waiting for the response */
+    volatile uint64_t stat_send_list_remain;        /* the count of send list remain*/
 }thread_data;
 
 rmtContext *init_context(struct instance *nci);

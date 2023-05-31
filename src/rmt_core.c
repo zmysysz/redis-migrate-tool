@@ -45,7 +45,8 @@ int thread_data_init(thread_data *tdata)
     tdata->stat_aof_loaded_count = 0;
     tdata->stat_mbufs_inqueue = 0;    
     tdata->stat_msgs_outqueue = 0;
-
+    tdata->stat_send_list_remain = 0;
+    
     return RMT_OK;
 }
 
@@ -89,7 +90,8 @@ void thread_data_deinit(thread_data *tdata)
     tdata->stat_rdb_parsed_count = 0;
     tdata->stat_mbufs_inqueue = 0;    
     tdata->stat_msgs_outqueue = 0;
-
+    
+    tdata->stat_send_list_remain = 0;
     return;
 }
 
@@ -137,6 +139,7 @@ static void write_thread_data_deinit(thread_data *wdata);
 
 static int write_thread_data_init(rmtContext *ctx, thread_data *wdata)
 {
+    
     int ret;
     dictIterator *di;
     dictEntry *de;
@@ -1320,6 +1323,7 @@ static void send_data_to_target(aeEventLoop *el, int fd, void *privdata, int mas
     int stop;
     int send_again;
 
+
     RMT_NOTUSED(el);
     RMT_NOTUSED(fd);
     RMT_NOTUSED(privdata);
@@ -1392,9 +1396,9 @@ again:
             target_node_close(trnode);
         }
 
-        if (n < (ssize_t)nsend) {
-            send_again = 0;
-        }
+        //if (n < (ssize_t)nsend) {
+        //    send_again = 0;
+        //}
     } else {
         n = 0;
     }
@@ -1453,6 +1457,9 @@ again:
             //msg send done
             ASSERT(listFirst(trnode->send_data) == lnode_msg);
             listDelNode(trnode->send_data, lnode_msg);
+	    //modify by zmy
+	    wdata->stat_send_list_remain = trnode->send_data->len;
+            //
             if(msg->noreply){
                 ASSERT(listLength(trnode->sent_data) == 0);
                 wdata->stat_msgs_outqueue --;
@@ -1569,6 +1576,7 @@ again:
     goto again;
 }
 
+
 int prepare_send_msg(redis_node *srnode, struct msg *msg, redis_node *trnode)
 {
     int ret;
@@ -1581,7 +1589,6 @@ int prepare_send_msg(redis_node *srnode, struct msg *msg, redis_node *trnode)
         listLength(msg->data), trnode->addr);
 
     MSG_CHECK(ctx, msg);
-    
     if (tc->sd < 0) {
         tc->flags &= ~RMT_BLOCK;
         if (tc->flags & RMT_RECONNECT) {
@@ -1604,6 +1611,7 @@ int prepare_send_msg(redis_node *srnode, struct msg *msg, redis_node *trnode)
             }
             sdsfree(reply);
         }
+
 
         if (ctx->noreply == 0) {
             ret = aeCreateFileEvent(wdata->loop, tc->sd, 
@@ -1631,6 +1639,18 @@ int prepare_send_msg(redis_node *srnode, struct msg *msg, redis_node *trnode)
     wdata->stat_total_msgs_recv ++;
     wdata->stat_msgs_outqueue ++;
     
+    //add by zmy
+    int wait_count = 0;
+    while(true){
+	if(wdata->stat_send_list_remain > 10000 && wait_count++ < 100)
+	{
+		log_error("WARN: send_speed_control send msg list too long, wait sending.. len %ld",wdata->stat_send_list_remain);
+		sleep(0.1);
+		continue;
+	}
+	break;
+    }
+
     return RMT_OK;
 }
 

@@ -6323,6 +6323,7 @@ del:
     }
 }
 
+
 /*
   * return: 
   * -1 error
@@ -6372,7 +6373,7 @@ int redis_key_value_send(redis_node *srnode, sds key,
         log_error("ERROR: generate msg with key value failed");
         goto error;
     }
-
+    
     if (msg->frag_seq == NULL) {
         mbuf_count += listLength(msg->data);
         ret = prepare_send_msg(srnode, msg, trnode);
@@ -6393,12 +6394,11 @@ int redis_key_value_send(redis_node *srnode, sds key,
             }
             msg->frag_seq[i] = NULL;
         }
-        
-        msg_put(msg);
+	msg_put(msg);
         msg_free(msg);
         msg = NULL;
     }
-
+    
     if (expiretime_type != RMT_TIME_NONE) {
         msg = redis_generate_msg_with_key_expire(ctx, mb, key, 
             expiretime_type, expiretime_str);
@@ -6417,7 +6417,12 @@ int redis_key_value_send(redis_node *srnode, sds key,
         mbuf_count += listLength(msg->data);
         msg = NULL;
     }
-
+    //modify by zmy memory leak fixed
+	
+    if (expiretime_str != NULL) {
+        sdsfree(expiretime_str);
+        expiretime_str = NULL;
+    }
     return mbuf_count;
         
 error:
@@ -6606,11 +6611,10 @@ int redis_parse_rdb_file(redis_node *srnode, int mbuf_count_one_time)
                         }
 
                         lfu_freq = byte;
-                        //modify by zmy
-                        if (redis_rdb_file_read(rdb, &byte, 1) != RMT_OK) {
+                        /*if (redis_rdb_file_read(rdb, &byte, 1) != RMT_OK) {
                                 log_error("ERROR: redis rdb file:%s read freq error", rdb->fname);
                                 goto eoferr;
-                        }
+                        }*/
                         continue;
                 } else if (type == REDIS_RDB_OPCODE_IDLE) {
                     uint64_t qword;
@@ -6620,12 +6624,11 @@ int redis_parse_rdb_file(redis_node *srnode, int mbuf_count_one_time)
                         }
 
                         lru_idle = qword;
-                        //modify by zmy
                         uint8_t byte = 0;
-                        if (redis_rdb_file_read(rdb, &byte, 1) != RMT_OK) {
+                        /*if (redis_rdb_file_read(rdb, &byte, 1) != RMT_OK) {
                                 log_error("ERROR: redis rdb file:%s read idle error", rdb->fname);
                                 goto eoferr;
-                        }
+                        }*/
                         continue;
         }
 	/*	
@@ -6633,7 +6636,7 @@ int redis_parse_rdb_file(redis_node *srnode, int mbuf_count_one_time)
 		log_error("ERROR: type %d ignore the type",type);
 		continue;
 	}*/	
-
+    	
         if ((key = redis_rdb_file_load_str(rdb)) == NULL) {
             log_error("ERROR: redis rdb file %s read key error", 
                 rdb->fname);
@@ -6668,7 +6671,7 @@ int redis_parse_rdb_file(redis_node *srnode, int mbuf_count_one_time)
 
             mbuf_count += ret;
         }
-        
+       
         sdsfree(key);
         key = NULL;
         redis_value_destroy(value);
