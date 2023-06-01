@@ -6560,9 +6560,13 @@ int redis_parse_rdb_file(redis_node *srnode, int mbuf_count_one_time)
             }
 
             expiretime_type = RMT_TIME_MILLISECOND;
-        } else if (type == REDIS_RDB_OPCODE_EOF) {
+        }
+	
+	if (type == REDIS_RDB_OPCODE_EOF) {
             break;
-        } else if (type == REDIS_RDB_OPCODE_SELECTDB) {
+        }
+	
+	if (type == REDIS_RDB_OPCODE_SELECTDB) {
             if ((dbid = redis_rdb_file_load_len(rdb, NULL)) 
                 == REDIS_RDB_LENERR) {
                 log_error("ERROR: redis rdb file %s read db num error", 
@@ -6572,7 +6576,9 @@ int redis_parse_rdb_file(redis_node *srnode, int mbuf_count_one_time)
 
             log_debug(LOG_INFO, "dbid: %d", dbid);
             continue;
-        } else if (type == REDIS_RDB_OPCODE_RESIZEDB) {
+        } 
+	
+	if (type == REDIS_RDB_OPCODE_RESIZEDB) {
             uint32_t db_size, expires_size;
             if ((db_size = redis_rdb_file_load_len(rdb, NULL)) 
                 == REDIS_RDB_LENERR) {
@@ -6587,7 +6593,9 @@ int redis_parse_rdb_file(redis_node *srnode, int mbuf_count_one_time)
                 goto eoferr;
             }
             continue;
-        } else if (type == REDIS_RDB_OPCODE_AUX) {
+        } 
+	
+	if (type == REDIS_RDB_OPCODE_AUX) {
             sds auxkey, auxval;
             if ((auxkey = redis_rdb_file_load_str(rdb)) == NULL) goto eoferr;
             if ((auxval = redis_rdb_file_load_str(rdb)) == NULL) {
@@ -6597,11 +6605,14 @@ int redis_parse_rdb_file(redis_node *srnode, int mbuf_count_one_time)
             sdsfree(auxkey);
             sdsfree(auxval);
             continue;
-        } else if (type == REDIS_RDB_OPCODE_MODULE_AUX) {
+        }
+	
+	if (type == REDIS_RDB_OPCODE_MODULE_AUX) {
             //redis has only checkmode now
             log_error("ERROR: type %d ignore the type module aux",type);
             continue;
 	}
+	
 	//modify by zmy
 	if (type == REDIS_RDB_OPCODE_FREQ) {
             uint8_t byte = 0;
